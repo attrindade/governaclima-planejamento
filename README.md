@@ -6,22 +6,23 @@
 
 ## 📑 Índice
 
-1. [Sobre o Projeto](#-sobre-o-projeto)
-2. [Arquitetura e Fluxo de Dados (SSoT)](#-arquitetura-e-fluxo-de-dados)
-3. [Guia de Estilo (Design System)](#-guia-de-estilo-design-system)
-4. [Tecnologias Utilizadas](#-tecnologias-utilizadas)
-5. [Como Executar o Projeto Localmente](#-como-executar-o-projeto-localmente)
-6. [Scripts Auxiliares (Python)](#-scripts-auxiliares)
-7. [Roadmap e Planos Futuros](#-roadmap-e-planos-futuros)
+1. [Sobre o Projeto](#sobre-o-projeto)
+2. [Arquitetura e Fluxo de Dados (SSoT)](#arquitetura-e-fluxo-de-dados)
+3. [Visualização do Ecossistema](#visualizacao)
+4. [Guia de Estilo (Design System)](#guia-de-estilo)
+5. [Tecnologias Utilizadas](#tecnologias)
+6. [Como Executar o Projeto Localmente](#execucao)
+7. [Scripts Auxiliares (Python)](#scripts)
+8. [Roadmap e Planos Futuros](#roadmap)
 
 ---
 
-## 🌐 Sobre o Projeto
+## 🌐 <a name="sobre-o-projeto"></a>Sobre o Projeto
 
-O **Climatizando Dash** é a principal camada de visualização e análise bibliográfica iterativa para o corpo de pesquisadores da Rede Climatizando.\
+O **Climatizando Dash**/**GovernaClima** é a principal camada de visualização e análise bibliográfica iterativa para o corpo de pesquisadores da Rede Climatizando.\
 Seu principal objetivo é viabilizar o estudo qualitativo e quantitativo unificado da evolução de normas, leis e decretos focados na agenda climática.
 
-## 🏛️ Arquitetura e Fluxo de Dados
+## 🏛️ <a name="arquitetura-e-fluxo-de-dados"></a>Arquitetura e Fluxo de Dados
 
 A arquitetura moderna do projeto opera sob o conceito de **Single Source of Truth (SSoT)**, garantindo que os fluxos de escrita, validação e exibição sejam resilientes e de alta velocidade.
 
@@ -32,13 +33,26 @@ A arquitetura moderna do projeto opera sob o conceito de **Single Source of Trut
 
 ---
 
-## 🏗️ Plano de Reestruturação
+## 🏗️ Plano de Reestruturação (Baseado na Pauta de 07/04)
 
-O projeto está passando por uma evolução estrutural para suportar o volume crescente de dados e descentralizar a análise.
+Com base nas definições da reunião, os próximos passos do projeto deverão focar nestes 5 pontos prioritários:
 
-### 1. Fluxo de Dados & Status de Implementação
+### Centralização do Fluxo de Dados (Single Source of Truth/SSOT)
 
-O diagrama abaixo detalha o novo ecossistema. As cores indicam o estágio atual de cada componente:
+A reestruturação da arquitetura redefine o papel do **SQLite**: ele deixa de ser o banco de dados primário de escrita para se tornar uma **Camada de Sincronização e Cache Local**. Essa mudança garante a integridade dos dados sem sacrificar a velocidade de entrega da aplicação.
+
+- **Ação Estrutural (SSoT):** A entrada oficial de dados e qualquer fluxo de edição passam a ser centralizados em uma **Planilha Mestra no Google Sheets**, que assume o papel de única "Fonte da Verdade" (Single Source of Truth). Isso elimina a fragmentação de dados e simplifica a governança.
+- **Canais de Alimentação:** O fluxo de atualização da planilha ocorre através de dois eixos complementares:
+    1.  **Inserção Manual:** Realizada diretamente pelos pesquisadores na interface do Google Sheets, aproveitando a familiaridade da ferramenta para entrada de dados em lote.
+    2.  **App Reviewer (PythonAnywhere):** Interface especializada para validação e edição refinada. Este ambiente permite que os registros passem por uma curadoria técnica antes de serem consolidados na planilha mestra. Seu repositório é: ../climatizando-review
+
+- **Mecanismo de Injeção de Dados:** O sistema utiliza uma rotina de sincronização (script Python) que extrai os dados validados do Google Sheets e reconstrói o arquivo `.db` do SQLite de forma limpa.
+
+**Vantagem Técnica:** Com essa abordagem, a camada de visualização no **Next.js** permanece desacoplada da complexidade da API do Google. As _Server Actions_ continuam consultando o SQLite local, o que garante uma navegação instantânea para o usuário final, enquanto a gestão dos dados ganha a robustez e o versionamento do ecossistema Google Workspace.
+
+### Estratégia de "Caminho Duplo" (GovernaClima + Looker Studio)
+
+Para garantir autonomia aos grupos de pesquisa, o projeto foi arquitetado em duas camadas independentes de visualização, ambas enraizadas no Google Sheets. O esquema completo de conexão funcionará da seguinte maneira: As cores indicam o estágio atual de cada componente:
 
 - 🟢 **Verde:** Implementado e Operacional.
 - 🟡 **Amarelo:** Em desenvolvimento ou Planejado.
@@ -93,16 +107,58 @@ graph TD
     class N8N,Portais,Sync,LE,Looker pendente;
 ```
 
-### 2. Objetivos Prioritários
+**Detalhando a otimização de performance:**
 
-1. **Centralização SSOT (Google Sheets):** O SQLite passa a ser uma camada de cache local, garantindo integridade e versionamento via Google Workspace.
-2. **Monitoramento Automatizado (n8n):** Implementação de rotinas de scraping e alertas para descoberta proativa de novos Atos Normativos.
-3. **Otimização Looker Studio:** Uso de extração de dados (Snapshots) para garantir performance instantânea nos relatórios de BI.
-4. **Identidade Visual Unificada:** Aplicação de um Design System profissional em todas as frentes (App, Dashboard e Relatórios).
+- **O papel do n8n no fluxo:**
+    - **Automação de Descoberta:** O n8n executa rotinas diárias conectando-se a APIs de portais de transparência ou realizando _web scraping_ em diários oficiais.
+    - **Conexão com Pesquisadores:** Ao detectar uma palavra-chave relevante (ex: "Mudança Climática", "Adaptação"), o n8n envia um alerta (via E-mail, Slack ou Telegram) para os pesquisadores iniciarem a triagem manual.
+    - **Conexão com App Reviewer:** O n8n pode realizar uma "pré-inserção" de metadados básicos (título da norma, link, data) diretamente na interface de revisão, economizando tempo de digitação e permitindo que o pesquisador foque apenas na análise qualitativa antes de enviar para o Google Sheets.
+- **Camada 1: Painel UFRGS (GovernaClima - Next.js):** Utiliza o SQLite como camada de cache local para garantir que a interface oficial responda em milissegundos, desacoplada da latência da API do Google.
+- **Camada 2: Plataforma Looker Studio (Extração de Dados):** Para gerenciar o volume de ~5.600 registros e garantir que os filtros sejam instantâneos, **não utilizamos a conexão direta "ao vivo"**. Em vez disso, o Looker Studio utiliza o conector de **Extração de Dados**.
+    - **Funcionamento:** O Looker cria um snapshot otimizado dos dados. Isso reduz o tempo de carregamento dos gráficos de segundos para uma fração de segundo.
+    - **Atualização:** O cache é atualizado via snapshot agendado (ex: diariamente), garantindo que a Planilha Mestra continue sendo a única fonte de verdade (SSOT).
 
 ---
 
-## 🎨 Guia de Estilo (Design System)
+## 🖼️ <a name="visualizacao"></a>Visualização do Ecossistema
+
+Acompanhamento visual das interfaces de curadoria e das propostas de dashboard para o projeto.
+
+### 🔍 App Reviewer (Fronteira de Dados)
+
+Interface de curadoria técnica que atua como ponte entre a descoberta automatizada (n8n) e a Planilha Mestra (SSoT).
+
+<div align="center">
+  <img src="assets/appreview.png" width="800" alt="App Reviewer Screenshot">
+</div>
+
+### 📊 Modelos de Dashboard (Em Decisão)
+
+> **⚠️ IMPORTANTE:**
+> Atualmente, as opções **GovernaClima (Vis)** e **Rede Climatizando** estão em fase de teste de usabilidade. O projeto final adotará **UM OU OUTRO** (ou uma síntese técnica de ambos), priorizando a experiência analítica dos pesquisadores.
+
+#### Opção 1: GovernaClima (Visão Sintética)
+
+Foco em painéis de métricas e filtros de acesso rápido.
+
+<div align="center">
+  <img src="assets/govclimalight.png" width="800" alt="GovernaClima Home">
+  <img src="assets/govclimalightvis.png" width="800" alt="GovernaClima Visão de Dados" style="margin-top: 10px;">
+</div>
+
+#### Opção 2: Rede Climatizando (Visão Geográfica e Analítica)
+
+Foco em mapeamento de leis, listagem detalhada e fluxogramas sistêmicos.
+
+<div align="center">
+  <img src="assets/redegeral.png" width="800" alt="Rede Geral">
+  <img src="assets/redemapa.png" width="800" alt="Rede Mapa" style="margin-top: 10px;">
+  <img src="assets/redevislista.png" width="800" alt="Rede Lista" style="margin-top: 10px;">
+</div>
+
+---
+
+## 🎨 <a name="guia-de-estilo"></a>Guia de Estilo (Design System)
 
 Para manter a consistência visual e o "look and feel" premium entre o Dashboard Next.js, o App Reviewer e os relatórios Looker, validamos as seguintes diretrizes:
 
@@ -138,7 +194,7 @@ Trama construída via pacote **Lucide React**. Segue com _stroke_ rígido de `2p
 
 ---
 
-## 💻 Tecnologias Utilizadas
+## 💻 <a name="tecnologias"></a>Tecnologias Utilizadas
 
 A Stack foi selecionada voltada para Tipagem, Produtividade React e Alta Performance de Carregamento.
 
@@ -150,7 +206,7 @@ A Stack foi selecionada voltada para Tipagem, Produtividade React e Alta Perform
 
 ---
 
-## 🛠️ Como Executar o Projeto Localmente
+## 🛠️ <a name="execucao"></a>Como Executar o Projeto Localmente
 
 1. **Clone o repósitório**
 
@@ -177,7 +233,7 @@ A Stack foi selecionada voltada para Tipagem, Produtividade React e Alta Perform
 
 ---
 
-## 🐍 Scripts Auxiliares
+## 🐍 <a name="scripts"></a>Scripts Auxiliares
 
 Existem pacotes auxiliares na própria base para gerenciar arquivos brutos e automações de laboratório:
 
@@ -189,7 +245,7 @@ _**Dica:** Para rodar os scripts, verifique e instale o ambiente Python usando a
 
 ---
 
-## 🚀 Roadmap e Planos Futuros
+## 🚀 <a name="roadmap"></a>Roadmap e Planos Futuros
 
 Conforme alinhamento em andamento de reestruturação do grupo, os próximos épicos abrangem:
 
